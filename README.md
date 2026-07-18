@@ -31,8 +31,7 @@ When starting the program it will ask for some information, these are:
 Optionally, you can create a settings file with the following model and the name "Settings.ini" in the program folder and configure its settings:
 
  ```ini
-[game_informations]
-game_title = Dark Souls II
+[game_title]
 game_save_location = C:\Users\Nayoh\AppData\Roaming\DarkSoulsII
 backup_save_time_minutes = 15
 delete_old = True
