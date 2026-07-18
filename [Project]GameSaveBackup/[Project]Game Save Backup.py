@@ -55,16 +55,11 @@ def now():
     currentTime = now.strftime("%H-%M-%S")
     return currentTime
 
-#Setup Settings
+#Setup Settings for a New Game
 def setupSettings():
-    if os.path.isfile("Settings.ini"):
-        try:
-            os.remove("Settings.ini")
-        except:
-            print("[INFO]Failed To Remove Settings.ini, Closing Program...")
-            input("Press (Enter) To Continue...")
-            exit()
-
+    n_cls()
+    print("=== ADD NEW GAME ===")
+    
     i = False
     while not i:
         game_title = input("Game Title: ")
@@ -96,76 +91,56 @@ def setupSettings():
 
     max_files_by_folder = int(max_files_by_folder)
 
-    try:
-        settings = open("Settings.ini", "w")
-        settings.write("[game_informations]\n")
-        settings.write("game_title = " + game_title + "\n")
-        settings.write("game_save_location = " + game_save_location + "\n")
-        settings.write("backup_save_time_minutes = " + str(backup_save_time_minutes) + "\n")
-        settings.write("delete_old = " + str(delete_old) + "\n")
-        settings.write("max_files_by_folder = " + str(max_files_by_folder))
-        settings.close()
-    except:
-        print("[INFO]Failed To Generate Settings.ini, Closing Program...")
-        input("Press (Enter) To Continue...")
-        exit()
-
-    game_save_location = game_save_location.replace("\\", "\\\\")
-    backup_save_time_minutes = backup_save_time_minutes * 60
-    input("Press (Enter) To Start...")
-    n_cls
-
-    return game_title, game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder
-
-
-#Check Settings File
-def checkSettings():
+    config = configparser.ConfigParser()
     if os.path.isfile("Settings.ini"):
         try:
-            settings = configparser.ConfigParser()
-            with open("Settings.ini","r") as file_object:
-                settings.read_file(file_object)
-                game_title = settings.get("game_informations", "game_title")
-                game_save_location = settings.get("game_informations", "game_save_location")
-                backup_save_time_minutes = settings.getint("game_informations", "backup_save_time_minutes")
-                delete_old = settings.get("game_informations", "delete_old")
-                max_files_by_folder = settings.getint("game_informations", "max_files_by_folder")
-
-            validateTitle = validateFolder(game_title)
-            validateSave = os.path.isdir(game_save_location)
-            game_save_location = game_save_location.replace("\\", "\\\\")
-            validateTime = validateNumber(backup_save_time_minutes, False)
-            backup_save_time_minutes = backup_save_time_minutes * 60
-
-            if delete_old == "True":
-                validateDelete = True
-                delete_old = True
-            elif delete_old == "False":
-                validateDelete = True
-                delete_old = False
-            else:
-                validateDelete = False
-
-            validateLimit = validateNumber(max_files_by_folder, True)
-
-            if validateTitle and validateSave and validateTime and validateDelete and validateLimit:
-                return game_title, game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder
-            else:
-                print("[INFO]Unknown Parameters In Settings.ini, Let's Reconfigure It.")
-                input("Press (Enter) To Continue...")
-                n_cls()
-                game_title, game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder = setupSettings()
-                return game_title, game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder
+            config.read("Settings.ini")
         except:
-            print("[INFO]Unknown Parameters In Settings.ini, Let's Reconfigure It.")
-            input("Press (Enter) To Continue...")
-            n_cls()
-            game_title, game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder = setupSettings()
-            return game_title, game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder
-    else:
-        print("[INFO]It Looks Like You Don't Have A Settings.ini File, Let's Configure It.")
-        game_title, game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder = setupSettings()
-        return game_title, game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder
+            pass
+
+    if not config.has_section(game_title):
+        config.add_section(game_title)
+    
+    config.set(game_title, "game_save_location", game_save_location)
+    config.set(game_title, "backup_save_time_minutes", str(backup_save_time_minutes))
+    config.set(game_title, "delete_old", str(delete_old))
+    config.set(game_title, "max_files_by_folder", str(max_files_by_folder))
+
+    try:
+        with open("Settings.ini", "w") as configfile:
+            config.write(configfile)
+        print(f"\n[INFO] Game '{game_title}' successfully saved to Settings.ini!")
+    except:
+        print("\n[INFO] Failed To Generate Settings.ini.")
+    
+    input("\nPress (Enter) To Return to Menu...")
+
+#Load Games List
+def getGamesList():
+    if not os.path.isfile("Settings.ini"):
+        return []
+    try:
+        config = configparser.ConfigParser()
+        config.read("Settings.ini")
+        return config.sections()
+    except:
+        return []
+
+#Load Specific Game Configs
+def loadGameConfig(game_title):
+    config = configparser.ConfigParser()
+    config.read("Settings.ini")
+    
+    game_save_location = config.get(game_title, "game_save_location")
+    backup_save_time_minutes = config.getint(game_title, "backup_save_time_minutes")
+    delete_old_str = config.get(game_title, "delete_old")
+    max_files_by_folder = config.getint(game_title, "max_files_by_folder")
+
+    delete_old = True if delete_old_str == "True" else False
+    game_save_location = game_save_location.replace("\\", "\\\\")
+    backup_save_time_minutes = backup_save_time_minutes * 60
+
+    return game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder
 
 #Generate Backups Folder
 def createDirectory(game_title, date_today):
@@ -188,7 +163,7 @@ def manageOldFiles(game_title, date_yesterday, date_today, stats):
                 try:
                     shutil.rmtree("NayohSaveLog/" + game_title + "/" + folder)
                 except:
-                    print("[INFO]Error Trying To Remove Files Older Than Today's And Yesterday's Date.")
+                    print("[INFO] Error Trying To Remove Files Older Than Today's And Yesterday's Date.")
 
 #Manage Old File Versions
 def manageOldFileVersions(game_title, date_today, max_files_by_folder):
@@ -200,7 +175,7 @@ def manageOldFileVersions(game_title, date_today, max_files_by_folder):
             try:
                 shutil.rmtree("NayohSaveLog/" + game_title + "/" + date_today + "/" + directory_list[0])
             except:
-                print("[INFO]Error Trying To Remove Old Files From Today's Date.")
+                print("[INFO] Error Trying To Remove Old Files From Today's Date.")
 
 #Backup Files
 def backupSave(game_title, date_today, game_save_location, max_files_by_folder):
@@ -210,14 +185,21 @@ def backupSave(game_title, date_today, game_save_location, max_files_by_folder):
     if os.path.isdir(game_save_location):
         dir_files = checkDirectoryFiles(game_save_location)
         if dir_files > 0:
-            files = os.listdir(game_save_location)
-            shutil.copytree(game_save_location, "NayohSaveLog/" + game_title + "/" + date_today + "/" + currentTime)
-            print("[" + reformatedCurrentTime + "]Backup Performed To " + game_title + ".")
-            manageOldFileVersions(game_title, date_today, max_files_by_folder)
+            destination = "NayohSaveLog/" + game_title + "/" + date_today + "/" + currentTime
+            try:
+                shutil.copytree(game_save_location, destination)
+                print("[" + reformatedCurrentTime + "] Backup Performed To " + game_title + ".")
+                manageOldFileVersions(game_title, date_today, max_files_by_folder)
+            except PermissionError:
+                print("[" + reformatedCurrentTime + "] Backup Failed: A file was locked by the game. Retrying in next cycle.")
+            except shutil.Error:
+                print("[" + reformatedCurrentTime + "] Backup Failed: File in use by another process. Retrying in next cycle.")
+            except Exception as e:
+                print("[" + reformatedCurrentTime + "] Backup Failed: " + str(e))
         else:
-            print("[" + reformatedCurrentTime + "]Backup Not Performed, The Directory for " + game_title + " Is Empty.")
+            print("[" + reformatedCurrentTime + "] Backup Not Performed, The Directory for " + game_title + " Is Empty.")
     else:
-        print("[" + reformatedCurrentTime + "]Backup Not Performed, The Directory For " + game_title + " Doesn't Exist.")
+        print("[" + reformatedCurrentTime + "] Backup Not Performed, The Directory For " + game_title + " Doesn't Exist.")
 
 #Check if Directory is Empty
 def checkDirectoryFiles(path):
@@ -233,18 +215,83 @@ def getDate():
 
     return date_today, date_yesterday
 
-#Start
-def start():
-    date_today, date_yesterday = getDate()
-    game_title, game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder = checkSettings()
-    createDirectory(game_title, date_today)
-    manageOldFiles(game_title, date_yesterday, date_today, delete_old)
+#Run Backup Loop for Selected Game
+def runBackup(game_title):
+    try:
+        game_save_location, backup_save_time_minutes, delete_old, max_files_by_folder = loadGameConfig(game_title)
+    except Exception as e:
+        print(f"[INFO] Error loading configuration for {game_title}: {str(e)}")
+        input("Press (Enter) to return to menu...")
+        return
+
     currentTime = now()
     currentTime = currentTime.replace("-", ":")
     n_cls()
-    print("[" + currentTime + "]Backup System Started.\n")
-    while True:
-        time.sleep(backup_save_time_minutes)
-        backupSave(game_title, date_today, game_save_location, max_files_by_folder)
+    print("====================================================")
+    print(f"[{currentTime}] Backup System Started for: {game_title}")
+    print("Press Ctrl+C to stop the backup loop and return to menu.")
+    print("====================================================\n")
+    
+    try:
+        while True:
+            date_today, date_yesterday = getDate()
+            createDirectory(game_title, date_today)
+            manageOldFiles(game_title, date_yesterday, date_today, delete_old)
+            backupSave(game_title, date_today, game_save_location, max_files_by_folder)
+            time.sleep(backup_save_time_minutes)
+            
+    except KeyboardInterrupt:
+        print("\n[INFO] Backup loop stopped by user.")
+        input("Press (Enter) to return to main menu...")
 
-start()
+#Main Menu
+def menu():
+    while True:
+        n_cls()
+        print("========================================")
+        print("          GAME SAVE BACKUP MENU         ")
+        print("========================================")
+        print("1. Add New Game")
+        print("2. Run Configured Backup")
+        print("3. Exit")
+        print("========================================")
+        option = input("Select an option (1-3): ").strip()
+
+        if option == "1":
+            setupSettings()
+        elif option == "2":
+            games = getGamesList()
+            if not games:
+                print("\n[INFO] No games configured yet. Please add a game first.")
+                input("Press (Enter) to continue...")
+                continue
+            
+            n_cls()
+            print("=== SELECT A GAME TO BACKUP ===")
+            for idx, game in enumerate(games, start=1):
+                print(f"{idx}. {game}")
+            print(f"{len(games) + 1}. Cancel")
+            print("===============================")
+            
+            choice = input(f"Select a game (1-{len(games) + 1}): ").strip()
+            try:
+                choice_idx = int(choice) - 1
+                if 0 <= choice_idx < len(games):
+                    runBackup(games[choice_idx])
+                elif choice_idx == len(games):
+                    continue
+                else:
+                    print("[INFO] Invalid choice.")
+                    input("Press (Enter) to continue...")
+            except ValueError:
+                print("[INFO] Please enter a valid number.")
+                input("Press (Enter) to continue...")
+        elif option == "3":
+            print("\nExiting program...")
+            break
+        else:
+            print("\n[INFO] Invalid option, try again.")
+            time.sleep(1)
+
+if __name__ == "__main__":
+    menu()
